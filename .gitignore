@@ -1,0 +1,9 @@
+# Artefactos de compilación de Swift Package Manager
+.build/
+
+# Imágenes de disco / entregables (se generan en el Escritorio, no en el repo)
+*.dmg
+*.zip
+
+# Basura de macOS
+.DS_Store

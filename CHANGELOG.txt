@@ -1,0 +1,20 @@
+Calculadora — Historial de versiones
+=====================================
+
+1.1.0 — 2026-06-16  (build 2)
+-----------------------------
+- Clic izquierdo en el icono del Dock ya NO abre otra ventana: solo trae al
+  frente la existente (antes molestaba al volver del navegador).
+- "Nueva ventana" ahora disponible en: clic derecho sobre el icono del Dock,
+  Cmd+N, o clic derecho sobre el número.
+- Nueva opción "Mantener al frente": la calculadora puede quedar por encima de
+  las demás ventanas y apps (en el menú del Dock y en el clic derecho).
+- build_dmg.sh: los bounds de la ventana del DMG ahora persisten bien (antes se
+  abría con tamaño incorrecto y cortaba el LÉEME); genera DMG + ZIP versionados.
+
+1.0 — 2026-06-07  (build 1)
+---------------------------
+- Primera versión nativa SwiftUI (sin Xcode, solo Command Line Tools).
+- Multi-ventana, teclado físico completo, coma colombiana (es_CO).
+- Copiar resultado (Cmd+C / clic derecho), borrar dígito (⌫ / deslizar).
+- Operadores y ± con SF Symbols, icono propio, DMG con fondo personalizado.

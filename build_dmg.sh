@@ -3,13 +3,13 @@
 # Uso: ./build_dmg.sh
 set -e
 
-APP="/Applications/Calculadora-Nativa.app"
-VOL="Calculadora"
+APP="/Applications/Calculadora+.app"
+VOL="Calculadora+"
 BG="$(dirname "$0")/dmg_assets/background.png"
 # Versión leída del Info.plist de la app → nombres de archivo versionados
 VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")"
-OUT="$HOME/Desktop/Calculadora-$VERSION.dmg"
-ZIP="$HOME/Desktop/Calculadora-$VERSION.zip"
+OUT="$HOME/Desktop/Calculadora+-$VERSION.dmg"
+ZIP="$HOME/Desktop/Calculadora+-$VERSION.zip"
 TMP_DMG="/tmp/Calculadora-rw.dmg"
 MNT="/Volumes/$VOL"
 echo "==> Versión: $VERSION"
@@ -31,7 +31,7 @@ cp "$BG" "$MNT/.background/background.png"
 cat > "$MNT/LÉEME.txt" <<'TXT'
 Calculadora — Made by snapsis
 Arrastra la app sobre "Applications". Primera vez: clic derecho -> Abrir.
-Si dice "dañada": xattr -dr com.apple.quarantine /Applications/Calculadora-Nativa.app
+Si dice "dañada": xattr -dr com.apple.quarantine "/Applications/Calculadora+.app"
 Requisitos: Apple Silicon (M1/M2/M3/M4) + macOS 14+.
 TXT
 
@@ -52,7 +52,7 @@ tell application "Finder"
         set text size of theViewOptions to 12
         set background picture of theViewOptions to file ".background:background.png"
         -- 3) Posiciones de los iconos
-        set position of item "Calculadora-Nativa.app" of container window to {165, 245}
+        set position of item "Calculadora+.app" of container window to {165, 245}
         set position of item "Applications" of container window to {495, 245}
         set position of item "LÉEME.txt" of container window to {330, 400}
         -- 4) Bounds AL FINAL, ya con el cromo definitivo (fijar dos veces ayuda a que persista)

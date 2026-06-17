@@ -1,6 +1,11 @@
 Calculadora — Historial de versiones
 =====================================
 
+1.2.0 — 2026-06-16  (build 3)
+-----------------------------
+- La app pasa a llamarse "Calculadora+" (antes "Calculadora-Nativa"): cambia el
+  nombre del bundle y el nombre visible en menú, Dock y "Acerca de".
+
 1.1.0 — 2026-06-16  (build 2)
 -----------------------------
 - Clic izquierdo en el icono del Dock ya NO abre otra ventana: solo trae al

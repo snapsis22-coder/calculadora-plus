@@ -567,6 +567,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleAlwaysOnTop() { AppState.shared.alwaysOnTop.toggle() }
 }
 
+// Menús de la barra superior: Archivo → "Nueva ventana" (reemplaza el "New Window"
+// genérico) y Ventana → "Mantener al frente" (con palomita).
+struct CalcCommands: Commands {
+    @ObservedObject private var appState = AppState.shared
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("Nueva ventana") { WindowOpener.openNew?() }
+                .keyboardShortcut("n")
+        }
+        CommandGroup(after: .windowArrangement) {
+            Toggle("Mantener al frente", isOn: $appState.alwaysOnTop)
+        }
+    }
+}
+
 @main
 struct CalculadoraApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -576,5 +592,6 @@ struct CalculadoraApp: App {
             CalculatorView()
         }
         .windowResizability(.contentSize)
+        .commands { CalcCommands() }
     }
 }

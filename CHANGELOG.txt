@@ -1,6 +1,14 @@
 Calculadora — Historial de versiones
 =====================================
 
+1.4.0 — 2026-07-05  (build 6)
+-----------------------------
+- Menús de la barra superior: Archivo → "Nueva ventana" (Cmd+N) y
+  Ventana → "Mantener al frente" (con palomita), como en el menú del Dock.
+- Menús del sistema en español: la app declara localización "es"
+  (CFBundleDevelopmentRegion + es.lproj) → Archivo, Edición, Ventana, Ayuda,
+  "Salir de Calculadora+", etc. salen traducidos.
+
 1.3.0 — 2026-07-05  (build 5)
 -----------------------------
 - El display grande ahora muestra la operación completa mientras se construye:

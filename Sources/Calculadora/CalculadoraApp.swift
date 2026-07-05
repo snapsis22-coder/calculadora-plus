@@ -26,7 +26,12 @@ final class AppState: ObservableObject {
 struct WindowConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let v = NSView()
-        DispatchQueue.main.async { if let w = v.window { AppState.shared.apply(to: w) } }
+        DispatchQueue.main.async {
+            if let w = v.window {
+                AppState.shared.apply(to: w)
+                w.makeKeyAndOrderFront(nil)
+            }
+        }
         return v
     }
     func updateNSView(_ nsView: NSView, context: Context) {}
@@ -43,12 +48,27 @@ final class CalculatorModel: ObservableObject {
     private var pending: String? = nil
     private var typing: Bool = false
     private var cleared: Bool = true           // estado "todo limpio" → muestra AC
+    private var lastOp: String? = nil          // para repetir con "=" (5 + 3 = = → 11)
+    private var lastOperand: Double? = nil
 
     // Etiqueta del botón superior izquierdo: AC cuando todo está limpio, C si hay entrada
     var clearLabel: String { cleared ? "AC" : "C" }
 
     // Punto de entrada único para botones y teclado
     func tap(_ key: String) {
+        // Tras un "Error" solo tiene sentido limpiar o empezar un número nuevo;
+        // operar sobre "Error" arrastraría estado inválido (NaN) o produciría "-Error".
+        if display == "Error" {
+            switch key {
+            case "0"..."9", ",":
+                display = "0"; expression = ""; stored = nil; pending = nil
+                typing = false; cleared = true; lastOp = nil; lastOperand = nil
+            case "AC", "C":
+                break
+            default:
+                return
+            }
+        }
         switch key {
         case "0","1","2","3","4","5","6","7","8","9": inputDigit(key)
         case ",":  inputDecimal()
@@ -89,6 +109,7 @@ final class CalculatorModel: ObservableObject {
         if cleared {
             // AC: reinicio total
             display = "0"; expression = ""; stored = nil; pending = nil; typing = false
+            lastOp = nil; lastOperand = nil
         } else {
             // C: limpia solo la entrada actual
             display = "0"; typing = false; cleared = true
@@ -102,7 +123,14 @@ final class CalculatorModel: ObservableObject {
     }
 
     private func percent() {
-        display = format(currentValue() / 100)
+        let value = currentValue()
+        // Con suma/resta pendiente, el % es porcentaje del número anterior:
+        // 200 + 10 % → 20 (y "=" da 220). Con ×/÷ o sin operación: valor/100.
+        if let s = stored, let op = pending, op == "+" || op == "−" {
+            display = format(s * value / 100)
+        } else {
+            display = format(value / 100)
+        }
         typing = false
     }
 
@@ -123,11 +151,23 @@ final class CalculatorModel: ObservableObject {
     }
 
     private func equals() {
-        guard let op = pending, let s = stored else { return }
+        guard let op = pending, let s = stored else {
+            // "=" repetido: repite la última operación sobre el resultado (5 + 3 = = → 11)
+            guard let op = lastOp, let operand = lastOperand else { return }
+            let value = currentValue()
+            let result = compute(value, operand, op)
+            expression = format(value) + " " + op + " " + format(operand) + " ="
+            display = format(result)
+            typing = false
+            cleared = false
+            return
+        }
         let value = currentValue()
         let result = compute(s, value, op)
         expression = format(s) + " " + op + " " + format(value) + " ="
         display = format(result)
+        lastOp = op
+        lastOperand = value
         pending = nil
         stored = nil
         typing = false
@@ -432,7 +472,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return menu
     }
 
-    @objc private func newWindow() { WindowOpener.openNew?() }
+    // Elegir un ítem del menú del Dock NO activa la app por sí solo → la ventana
+    // nueva nacía detrás de la app en primer plano. Activar antes de abrir.
+    @objc private func newWindow() {
+        NSApp.activate()
+        WindowOpener.openNew?()
+    }
     @objc private func toggleAlwaysOnTop() { AppState.shared.alwaysOnTop.toggle() }
 }
 

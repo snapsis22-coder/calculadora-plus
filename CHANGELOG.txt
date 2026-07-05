@@ -1,6 +1,19 @@
 Calculadora — Historial de versiones
 =====================================
 
+1.2.1 — 2026-07-05  (build 4)
+-----------------------------
+- Porcentaje corregido: con suma o resta pendiente, % calcula el porcentaje del
+  número anterior (200 + 10 % = 220; antes daba 200,1). Con ×/÷ o sin operación
+  sigue siendo valor/100.
+- "Nueva ventana" desde el menú del Dock ahora activa la app y trae la ventana
+  nueva al frente (antes nacía oculta detrás de la app en primer plano).
+- "=" repetido repite la última operación, como la Calculadora de macOS
+  (5 + 3 = = → 11).
+- Tras un "Error" (p. ej. dividir por 0), ± y los operadores ya no producen
+  resultados basura ("-Error", cálculos con NaN): solo AC/C o empezar un número
+  nuevo salen del error.
+
 1.2.0 — 2026-06-16  (build 3)
 -----------------------------
 - La app pasa a llamarse "Calculadora+" (antes "Calculadora-Nativa"): cambia el

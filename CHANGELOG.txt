@@ -1,6 +1,11 @@
 Calculadora — Historial de versiones
 =====================================
 
+1.4.1 — 2026-07-05  (build 7)
+-----------------------------
+- Quitado el botón ⌫ del display (y el gesto de deslizar): borrar dígitos ahora
+  responde solo a la tecla de retroceso.
+
 1.4.0 — 2026-07-05  (build 6)
 -----------------------------
 - Menús de la barra superior: Archivo → "Nueva ventana" (Cmd+N) y

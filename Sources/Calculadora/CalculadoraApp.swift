@@ -357,17 +357,9 @@ struct CalculatorView: View {
 
     private var displayArea: some View {
         HStack(alignment: .bottom, spacing: 4) {
-            // Botón borrar último dígito (⌫)
-            Button { model.backspace() } label: {
-                Image(systemName: "delete.left")
-                    .font(.system(size: 20, weight: .regular))
-                    .foregroundColor(.gray)
-            }
-            .buttonStyle(.plain)
-            .help("Borrar último dígito (también: tecla ⌫ o desliza sobre el número)")
-
             Spacer(minLength: 0)
 
+            // Borrar dígito: solo con la tecla ⌫ (sin botón ni gesto)
             VStack(alignment: .trailing, spacing: 2) {
                 Text(model.expression.isEmpty ? " " : model.expression)
                     .font(.system(size: 15))
@@ -379,11 +371,6 @@ struct CalculatorView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.35)
             }
-            // Deslizar a la izquierda sobre el número también borra
-            .gesture(
-                DragGesture(minimumDistance: 18)
-                    .onEnded { if $0.translation.width < -18 { model.backspace() } }
-            )
         }
         .frame(width: gridWidth, height: 86, alignment: .bottom)
         .padding(.horizontal, 6)

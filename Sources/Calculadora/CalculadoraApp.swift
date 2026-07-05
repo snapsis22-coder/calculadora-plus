@@ -40,16 +40,18 @@ struct WindowConfigurator: NSViewRepresentable {
 // MARK: - Lógica de la calculadora
 
 final class CalculatorModel: ObservableObject {
-    @Published var display: String = "0"      // número grande
-    @Published var expression: String = ""    // línea gris superior
+    @Published var display: String = "0"      // número grande: operación en curso o resultado
+    @Published var expression: String = ""    // línea gris: última operación completada
     @Published var activeOp: String? = nil     // operador resaltado
 
+    private var entry: String = "0"            // operando en edición ("" = recién pulsado operador)
     private var stored: Double? = nil
     private var pending: String? = nil
     private var typing: Bool = false
     private var cleared: Bool = true           // estado "todo limpio" → muestra AC
     private var lastOp: String? = nil          // para repetir con "=" (5 + 3 = = → 11)
     private var lastOperand: Double? = nil
+    private var isPercent: Bool = false        // entry termina en "%" pendiente de resolver
 
     // Etiqueta del botón superior izquierdo: AC cuando todo está limpio, C si hay entrada
     var clearLabel: String { cleared ? "AC" : "C" }
@@ -61,8 +63,7 @@ final class CalculatorModel: ObservableObject {
         if display == "Error" {
             switch key {
             case "0"..."9", ",":
-                display = "0"; expression = ""; stored = nil; pending = nil
-                typing = false; cleared = true; lastOp = nil; lastOperand = nil
+                resetAll()
             case "AC", "C":
                 break
             default:
@@ -79,28 +80,47 @@ final class CalculatorModel: ObservableObject {
         case "=":  equals()
         default: break
         }
+        refreshDisplay()
+    }
+
+    // El display grande muestra la operación completa mientras se construye
+    // ("200 + 10%"); al dar "=" queda el resultado y la línea gris guarda la expresión.
+    private func refreshDisplay() {
+        if let s = stored, let op = pending {
+            display = format(s) + " " + op + (entry.isEmpty ? "" : " " + entry)
+        } else {
+            display = entry
+        }
+    }
+
+    private func resetAll() {
+        entry = "0"; expression = ""; stored = nil; pending = nil
+        typing = false; cleared = true; isPercent = false
+        lastOp = nil; lastOperand = nil; activeOp = nil
     }
 
     private func inputDigit(_ d: String) {
+        isPercent = false
         cleared = false
         if !typing {
-            display = d
+            entry = d
             typing = true
-        } else if display == "0" {
-            display = d
+        } else if entry == "0" {
+            entry = d
         } else {
-            display += d
+            entry += d
         }
         activeOp = nil
     }
 
     private func inputDecimal() {
+        isPercent = false
         cleared = false
         if !typing {
-            display = "0,"
+            entry = "0,"
             typing = true
-        } else if !display.contains(",") {
-            display += ","
+        } else if !entry.contains(",") {
+            entry += ","
         }
         activeOp = nil
     }
@@ -108,64 +128,106 @@ final class CalculatorModel: ObservableObject {
     private func tapClear() {
         if cleared {
             // AC: reinicio total
-            display = "0"; expression = ""; stored = nil; pending = nil; typing = false
-            lastOp = nil; lastOperand = nil
+            resetAll()
         } else {
             // C: limpia solo la entrada actual
-            display = "0"; typing = false; cleared = true
+            entry = "0"; typing = false; cleared = true; isPercent = false
         }
         activeOp = nil
     }
 
     private func negate() {
-        if display.hasPrefix("-") { display.removeFirst() }
-        else if display != "0" { display = "-" + display }
+        // Tras un operador ("200 + ±") el operando parte del número almacenado
+        if entry.isEmpty {
+            guard let s = stored else { return }
+            entry = rawString(s)
+        }
+        if entry.hasPrefix("-") { entry.removeFirst() }
+        else if entry != "0" { entry = "-" + entry }
     }
 
     private func percent() {
-        let value = currentValue()
-        // Con suma/resta pendiente, el % es porcentaje del número anterior:
-        // 200 + 10 % → 20 (y "=" da 220). Con ×/÷ o sin operación: valor/100.
-        if let s = stored, let op = pending, op == "+" || op == "−" {
-            display = format(s * value / 100)
-        } else {
-            display = format(value / 100)
-        }
+        // "%" diferido: se muestra "10%" tal cual; el valor real se resuelve
+        // en operandValue() al dar "=" o encadenar otro operador.
+        guard !isPercent else { return }
+        if entry.isEmpty { entry = rawString(stored ?? 0) }   // "200 + %" → "200 + 200%"
+        if entry.hasSuffix(",") { entry.removeLast() }
+        entry += "%"
+        isPercent = true
         typing = false
     }
 
-    private func setOperation(_ op: String) {
-        let value = currentValue()
-        if pending != nil && typing {
-            let result = compute(stored ?? 0, value, pending!)
-            stored = result
-            display = format(result)
-        } else {
-            stored = value
+    // Valor efectivo del operando en edición. Si es "N%": con suma/resta pendiente
+    // es porcentaje del número anterior (200 + 10% → 20); con ×/÷ o suelto, N/100.
+    private func operandValue() -> Double {
+        let v = currentValue()
+        guard isPercent else { return v }
+        if let s = stored, let op = pending, op == "+" || op == "−" {
+            return s * v / 100
         }
+        return v / 100
+    }
+
+    private func setOperation(_ op: String) {
+        if pending != nil && (typing || isPercent) {
+            // encadenar: 200 + 10 × → calcula 210 y sigue con "210 ×"
+            let result = compute(stored ?? 0, operandValue(), pending!)
+            if result.isNaN || result.isInfinite {
+                resetAll()
+                entry = "Error"
+                cleared = false
+                return
+            }
+            stored = result
+        } else if pending == nil {
+            stored = operandValue()   // resuelve también "50% +" → "0,5 +"
+        }
+        // (con pending y sin operando tecleado: solo cambia el operador)
+        entry = ""
+        isPercent = false
         pending = op
         typing = false
         cleared = false
         activeOp = op
-        expression = format(stored ?? value) + " " + op
+        expression = ""   // la operación en curso ahora vive en el display grande
     }
 
     private func equals() {
         guard let op = pending, let s = stored else {
+            if isPercent {
+                // "50% =" suelto: resolver el porcentaje a su valor
+                let value = operandValue()
+                expression = entry + " ="
+                entry = format(value)
+                isPercent = false
+                typing = false
+                cleared = false
+                return
+            }
             // "=" repetido: repite la última operación sobre el resultado (5 + 3 = = → 11)
             guard let op = lastOp, let operand = lastOperand else { return }
             let value = currentValue()
             let result = compute(value, operand, op)
             expression = format(value) + " " + op + " " + format(operand) + " ="
-            display = format(result)
+            entry = format(result)
             typing = false
             cleared = false
             return
         }
-        let value = currentValue()
+        let value: Double
+        let shown: String
+        if entry.isEmpty {
+            // "200 + =": usa el número almacenado como segundo operando (como Apple)
+            value = s
+            shown = format(s)
+        } else {
+            value = operandValue()
+            shown = isPercent ? entry : format(value)   // "200 + 10% =" en la línea gris
+        }
         let result = compute(s, value, op)
-        expression = format(s) + " " + op + " " + format(value) + " ="
-        display = format(result)
+        expression = format(s) + " " + op + " " + shown + " ="
+        entry = format(result)
+        isPercent = false
         lastOp = op
         lastOperand = value
         pending = nil
@@ -176,19 +238,37 @@ final class CalculatorModel: ObservableObject {
     }
 
     func backspace() {
+        defer { refreshDisplay() }
+        // Sobre "N%" el primer borrado quita solo el "%" y vuelve a modo edición
+        if entry.hasSuffix("%") {
+            entry = String(entry.dropLast()).replacingOccurrences(of: ".", with: "")
+            isPercent = false
+            typing = true
+            return
+        }
+        // Con "200 +" (sin operando aún), borrar quita el operador y vuelve a editar el 200
+        if entry.isEmpty {
+            guard let s = stored, pending != nil else { entry = "0"; return }
+            entry = rawString(s)
+            stored = nil
+            pending = nil
+            activeOp = nil
+            typing = true
+            return
+        }
         // Si no estábamos tecleando (resultado, recién abierta, etc.) pasamos a modo
         // edición sobre el número que se ve, quitando el separador de miles "."
         if !typing {
-            if display == "0" || display == "Error" { return }
-            display = display.replacingOccurrences(of: ".", with: "")
+            if entry == "0" || entry == "Error" { return }
+            entry = entry.replacingOccurrences(of: ".", with: "")
             typing = true
         }
-        let isNeg = display.hasPrefix("-")
-        if display.count <= 1 || (display.count == 2 && isNeg) {
-            display = "0"; typing = false
+        let isNeg = entry.hasPrefix("-")
+        if entry.count <= 1 || (entry.count == 2 && isNeg) {
+            entry = "0"; typing = false
         } else {
-            display.removeLast()
-            if display == "-" { display = "0"; typing = false }
+            entry.removeLast()
+            if entry == "-" { entry = "0"; typing = false }
         }
     }
 
@@ -213,10 +293,16 @@ final class CalculatorModel: ObservableObject {
 
     private func currentValue() -> Double {
         // "." = separador de miles, "," = decimal → normalizar a formato Double
-        let cleanedStr = display
+        let cleanedStr = entry
+            .replacingOccurrences(of: "%", with: "")
             .replacingOccurrences(of: ".", with: "")
             .replacingOccurrences(of: ",", with: ".")
         return Double(cleanedStr) ?? 0
+    }
+
+    // Versión editable de un número ya calculado (sin separador de miles)
+    private func rawString(_ v: Double) -> String {
+        format(v).replacingOccurrences(of: ".", with: "")
     }
 
     private func format(_ v: Double) -> String {

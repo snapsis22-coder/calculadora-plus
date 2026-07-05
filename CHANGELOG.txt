@@ -1,6 +1,17 @@
 Calculadora — Historial de versiones
 =====================================
 
+1.3.0 — 2026-07-05  (build 5)
+-----------------------------
+- El display grande ahora muestra la operación completa mientras se construye:
+  "200 + 10", "200 + 10%", "200 × 5"… Al dar "=" queda el resultado y la
+  expresión completa pasa a la línea gris ("200 + 10% =").
+- El "%" ya no convierte de inmediato: se ve tal cual ("10%") y se resuelve al
+  dar "=" o al encadenar otro operador.
+- Borrar (⌫) sobre "200 +" quita el operador y vuelve a editar el 200; sobre
+  "10%" quita solo el "%".
+- Encadenar operadores muestra el parcial: 200 + 10% × → "220 ×".
+
 1.2.1 — 2026-07-05  (build 4)
 -----------------------------
 - Porcentaje corregido: con suma o resta pendiente, % calcula el porcentaje del

@@ -7,3 +7,8 @@
 
 # Basura de macOS
 .DS_Store
+
+# Entorno local
+.swiftpm/
+*.app
+._*

@@ -87,9 +87,9 @@ final class CalculatorModel: ObservableObject {
     // ("200 + 10%"); al dar "=" queda el resultado y la línea gris guarda la expresión.
     private func refreshDisplay() {
         if let s = stored, let op = pending {
-            display = format(s) + " " + op + (entry.isEmpty ? "" : " " + entry)
+            display = format(s) + " " + op + (entry.isEmpty ? "" : " " + grouped(entry))
         } else {
-            display = entry
+            display = grouped(entry)
         }
     }
 
@@ -303,6 +303,32 @@ final class CalculatorModel: ObservableObject {
     // Versión editable de un número ya calculado (sin separador de miles)
     private func rawString(_ v: Double) -> String {
         format(v).replacingOccurrences(of: ".", with: "")
+    }
+
+    // Separador de miles mientras se digita: "100000" se ve "100.000".
+    // Solo afecta lo que se PINTA; `entry` sigue crudo para cálculo y borrado.
+    // Idempotente: tras "=" el entry ya viene formateado, así que se limpia antes.
+    private func grouped(_ e: String) -> String {
+        guard e != "Error", !e.isEmpty else { return e }
+        var s = e
+        var suffix = ""
+        if s.hasSuffix("%") { suffix = "%"; s.removeLast() }
+        var sign = ""
+        if s.hasPrefix("-") { sign = "-"; s.removeFirst() }
+        // La parte decimal (y la coma final de "0,") se dejan intactas: no se agrupan
+        var intPart = s, decPart = ""
+        if let c = s.firstIndex(of: ",") {
+            intPart = String(s[s.startIndex..<c])
+            decPart = String(s[c...])
+        }
+        intPart = intPart.replacingOccurrences(of: ".", with: "")
+        guard intPart.count > 3 else { return sign + intPart + decPart + suffix }
+        var out = ""
+        for (i, ch) in intPart.reversed().enumerated() {
+            if i > 0 && i % 3 == 0 { out.append(".") }
+            out.append(ch)
+        }
+        return sign + String(out.reversed()) + decPart + suffix
     }
 
     private func format(_ v: Double) -> String {

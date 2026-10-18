@@ -10,6 +10,44 @@ final class AppState: ObservableObject {
         didSet { applyToAllWindows() }
     }
 
+    // Panel lateral de historial (vale para todas las ventanas y se recuerda al reabrir)
+    @Published var showHistory = UserDefaults.standard.bool(forKey: "mostrarHistorial") {
+        didSet {
+            UserDefaults.standard.set(showHistory, forKey: "mostrarHistorial")
+            // El panel va a la IZQUIERDA, pero SwiftUI ensancha la ventana hacia la
+            // derecha → la calculadora saltaría de sitio. Se anota el borde derecho de
+            // cada ventana y, en el MISMO instante en que SwiftUI la redimensiona
+            // (didResize, antes de pintarse), se devuelve a ese borde: sin parpadeo.
+            pinnedRightEdges = [:]
+            for w in NSApp.windows where w.isVisible {
+                pinnedRightEdges[ObjectIdentifier(w)] = w.frame.maxX
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.pinnedRightEdges = [:] }
+        }
+    }
+
+    private var pinnedRightEdges: [ObjectIdentifier: CGFloat] = [:]
+    private var resizeObserver: NSObjectProtocol?
+
+    private init() {
+        resizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification, object: nil, queue: nil
+        ) { [weak self] note in
+            guard let w = note.object as? NSWindow,
+                  let maxX = self?.pinnedRightEdges[ObjectIdentifier(w)] else { return }
+            Self.place(w, rightEdge: maxX)
+        }
+    }
+
+    private static func place(_ w: NSWindow, rightEdge: CGFloat) {
+        var x = rightEdge - w.frame.width
+        // Sin salirse de la pantalla por ninguno de los dos lados
+        if let screen = w.screen?.visibleFrame {
+            x = min(max(x, screen.minX), screen.maxX - w.frame.width)
+        }
+        w.setFrameOrigin(NSPoint(x: x, y: w.frame.minY))
+    }
+
     // Nivel de ventana según el estado actual (.floating = sobre las demás apps).
     private var level: NSWindow.Level { alwaysOnTop ? .floating : .normal }
 
@@ -37,6 +75,48 @@ struct WindowConfigurator: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
+// MARK: - Historial
+
+struct HistoryEntry: Codable, Identifiable {
+    var id = UUID()
+    let expression: String   // "200 + 10% ="
+    let result: String       // "220"
+}
+
+/// Historial común a todas las ventanas; se guarda en las preferencias de la app
+/// para que siga ahí al cerrarla. Lo más reciente va primero.
+final class HistoryStore: ObservableObject {
+    static let shared = HistoryStore()
+    private let key = "historial"
+    private let maxEntries = 100
+
+    @Published private(set) var entries: [HistoryEntry] = []
+
+    private init() {
+        if let data = UserDefaults.standard.data(forKey: key),
+           let saved = try? JSONDecoder().decode([HistoryEntry].self, from: data) {
+            entries = saved
+        }
+    }
+
+    func add(expression: String, result: String) {
+        entries.insert(HistoryEntry(expression: expression, result: result), at: 0)
+        if entries.count > maxEntries { entries.removeLast(entries.count - maxEntries) }
+        save()
+    }
+
+    func clear() {
+        entries.removeAll()
+        save()
+    }
+
+    private func save() {
+        if let data = try? JSONEncoder().encode(entries) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+    }
+}
+
 // MARK: - Lógica de la calculadora
 
 final class CalculatorModel: ObservableObject {
@@ -52,6 +132,9 @@ final class CalculatorModel: ObservableObject {
     private var lastOp: String? = nil          // para repetir con "=" (5 + 3 = = → 11)
     private var lastOperand: Double? = nil
     private var isPercent: Bool = false        // entry termina en "%" pendiente de resolver
+
+    // Avisa cada operación terminada con "=" (expresión, resultado) → historial
+    var onResult: ((String, String) -> Void)?
 
     // Etiqueta del botón superior izquierdo: AC cuando todo está limpio, C si hay entrada
     var clearLabel: String { cleared ? "AC" : "C" }
@@ -202,6 +285,7 @@ final class CalculatorModel: ObservableObject {
                 isPercent = false
                 typing = false
                 cleared = false
+                reportResult()
                 return
             }
             // "=" repetido: repite la última operación sobre el resultado (5 + 3 = = → 11)
@@ -212,6 +296,7 @@ final class CalculatorModel: ObservableObject {
             entry = format(result)
             typing = false
             cleared = false
+            reportResult()
             return
         }
         let value: Double
@@ -235,6 +320,26 @@ final class CalculatorModel: ObservableObject {
         typing = false
         cleared = false
         activeOp = nil
+        reportResult()
+    }
+
+    // Los errores (÷ 0) no se guardan en el historial
+    private func reportResult() {
+        guard entry != "Error" else { return }
+        onResult?(expression, entry)
+    }
+
+    // Clic en el historial: trae ese resultado a la calculadora. Sin operación
+    // pendiente queda como un resultado (un dígito nuevo lo reemplaza); con
+    // "200 +" pendiente entra como segundo operando ("200 + 15").
+    func recall(_ value: String) {
+        if display == "Error" { resetAll() }
+        entry = value.replacingOccurrences(of: ".", with: "")
+        isPercent = false
+        typing = pending != nil
+        cleared = false
+        activeOp = nil
+        refreshDisplay()
     }
 
     func backspace() {
@@ -347,6 +452,7 @@ final class CalculatorModel: ObservableObject {
 struct CalculatorView: View {
     @StateObject private var model = CalculatorModel()
     @ObservedObject private var appState = AppState.shared
+    @ObservedObject private var history = HistoryStore.shared
     @FocusState private var focused: Bool
     @Environment(\.openWindow) private var openWindow
 
@@ -359,9 +465,12 @@ struct CalculatorView: View {
     private let orange   = Color(red: 1.0,  green: 0.62, blue: 0.04)
 
     var body: some View {
-        VStack(spacing: spacing) {
-            displayArea
-            buttonsGrid
+        HStack(alignment: .top, spacing: spacing) {
+            if appState.showHistory { historyPanel }
+            VStack(spacing: spacing) {
+                displayArea
+                buttonsGrid
+            }
         }
         .padding(spacing)
         .background(Color.black)
@@ -372,6 +481,7 @@ struct CalculatorView: View {
         .onAppear {
             focused = true
             WindowOpener.openNew = { openWindow(id: "calc") }
+            model.onResult = { HistoryStore.shared.add(expression: $0, result: $1) }
         }
         .onKeyPress(.delete) { model.backspace(); return .handled }
         .onKeyPress(.deleteForward) { model.backspace(); return .handled }
@@ -383,6 +493,17 @@ struct CalculatorView: View {
 
     private var displayArea: some View {
         HStack(alignment: .bottom, spacing: 4) {
+            // Botón discreto para abrir/cerrar el historial
+            VStack {
+                Button { appState.showHistory.toggle() } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 14))
+                        .foregroundColor(appState.showHistory ? orange : .gray)
+                }
+                .buttonStyle(.plain)
+                .help(appState.showHistory ? "Ocultar historial" : "Mostrar historial")
+                Spacer()
+            }
             Spacer(minLength: 0)
 
             // Borrar dígito: solo con la tecla ⌫ (sin botón ni gesto)
@@ -406,6 +527,70 @@ struct CalculatorView: View {
             Divider()
             Button("Nueva ventana") { openWindow(id: "calc") }
             Toggle("Mantener al frente", isOn: $appState.alwaysOnTop)
+            Toggle("Mostrar historial", isOn: $appState.showHistory)
+        }
+    }
+
+    // Alto de la calculadora (display + 5 filas de botones): el panel lo iguala
+    private var calcHeight: CGFloat { 86 + spacing + size * 5 + spacing * 4 }
+
+    // Panel lateral: operaciones terminadas, la más reciente arriba.
+    // Clic en una → trae el resultado; clic derecho → copiarlo.
+    private var historyPanel: some View {
+        VStack(spacing: 0) {
+            if history.entries.isEmpty {
+                Spacer()
+                Text("Sin operaciones")
+                    .font(.system(size: 13))
+                    .foregroundColor(.gray)
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .trailing, spacing: 0) {
+                        ForEach(history.entries) { item in
+                            historyRow(item)
+                        }
+                    }
+                }
+                Divider().background(Color.gray.opacity(0.4))
+                Button("Borrar historial") { history.clear() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12))
+                    .foregroundColor(orange)
+                    .padding(.vertical, 8)
+            }
+        }
+        .frame(width: 200, height: calcHeight)
+        .background(Color(white: 0.11))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func historyRow(_ item: HistoryEntry) -> some View {
+        Button { model.recall(item.result); focused = true } label: {
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(item.expression)
+                    .font(.system(size: 12))
+                    .foregroundColor(.gray)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                Text(item.result)
+                    .font(.system(size: 20, weight: .light))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button("Copiar resultado") {
+                let pb = NSPasteboard.general
+                pb.clearContents()
+                pb.setString(item.result, forType: .string)
+            }
         }
     }
 
@@ -568,6 +753,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alFrente.state = AppState.shared.alwaysOnTop ? .on : .off
         menu.addItem(alFrente)
 
+        let hist = NSMenuItem(title: "Mostrar historial", action: #selector(toggleHistory), keyEquivalent: "")
+        hist.target = self
+        hist.state = AppState.shared.showHistory ? .on : .off
+        menu.addItem(hist)
+
         return menu
     }
 
@@ -578,10 +768,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         WindowOpener.openNew?()
     }
     @objc private func toggleAlwaysOnTop() { AppState.shared.alwaysOnTop.toggle() }
+    @objc private func toggleHistory() { AppState.shared.showHistory.toggle() }
 }
 
 // Menús de la barra superior: Archivo → "Nueva ventana" (reemplaza el "New Window"
-// genérico) y Ventana → "Mantener al frente" (con palomita).
+// genérico), Ventana → "Mantener al frente" y Visualización → "Mostrar historial" (Cmd+L).
 struct CalcCommands: Commands {
     @ObservedObject private var appState = AppState.shared
 
@@ -592,6 +783,10 @@ struct CalcCommands: Commands {
         }
         CommandGroup(after: .windowArrangement) {
             Toggle("Mantener al frente", isOn: $appState.alwaysOnTop)
+        }
+        CommandGroup(after: .sidebar) {
+            Toggle("Mostrar historial", isOn: $appState.showHistory)
+                .keyboardShortcut("l")
         }
     }
 }

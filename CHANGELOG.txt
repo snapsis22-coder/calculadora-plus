@@ -2,6 +2,19 @@
 Calculadora — Historial de versiones
 =====================================
 
+1.6.0 — 2026-10-14  (build 9)
+-----------------------------
+- Historial de operaciones en un panel a la IZQUIERDA. Se abre y se cierra con el
+  relojito arriba a la izquierda, con Cmd+L (menú Visualización), con clic
+  derecho sobre el número o desde el menú del Dock.
+- El historial es común a todas las ventanas y se conserva al cerrar la app
+  (guarda las últimas 100 operaciones; las que dan Error no se guardan).
+- Clic en una operación del historial → trae su resultado a la calculadora
+  (si hay una operación a medias, "200 +", entra como segundo número).
+  Clic derecho → "Copiar resultado". Botón "Borrar historial" al pie.
+- Al abrir el panel la ventana crece hacia la izquierda: la calculadora se
+  queda en su sitio (y si no cabe, la ventana no se sale de la pantalla).
+
 1.5.0 — 2026-08-20  (build 8)
 -----------------------------
 - Separador de miles mientras se escribe: al digitar 100000 se ve "100.000".

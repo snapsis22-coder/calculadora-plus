@@ -1,5 +1,5 @@
 #!/bin/bash
-# Genera Calculadora.dmg con fondo personalizado, layout de iconos y enlace a /Applications.
+# Genera Calculadora+-X.Y.Z.dmg con fondo personalizado, layout de iconos y enlace a /Applications.
 # Uso: ./build_dmg.sh
 set -e
 
@@ -9,7 +9,6 @@ BG="$(dirname "$0")/dmg_assets/background.png"
 # Versión leída del Info.plist de la app → nombres de archivo versionados
 VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")"
 OUT="$HOME/Desktop/Calculadora+-$VERSION.dmg"
-ZIP="$HOME/Desktop/Calculadora+-$VERSION.zip"
 TMP_DMG="/tmp/Calculadora-rw.dmg"
 MNT="/Volumes/$VOL"
 echo "==> Versión: $VERSION"
@@ -29,9 +28,18 @@ ln -s /Applications "$MNT/Applications"
 mkdir -p "$MNT/.background"
 cp "$BG" "$MNT/.background/background.png"
 cat > "$MNT/LÉEME.txt" <<'TXT'
-Calculadora — Made by snapsis
-Arrastra la app sobre "Applications". Primera vez: clic derecho -> Abrir.
-Si dice "dañada": xattr -dr com.apple.quarantine "/Applications/Calculadora+.app"
+Calculadora+ — Made by snapsis
+
+Arrastra la app sobre "Applications".
+
+Primera vez que la abras (macOS lo pide una sola vez para apps de fuera del App Store):
+  1. Ábrela con doble clic: macOS dirá que no puede verificarla. Dale "Listo".
+  2. Ve a Ajustes del Sistema -> Privacidad y seguridad.
+  3. Abajo, junto a "Calculadora+", pulsa "Abrir de todos modos" y confirma.
+
+Si dice que está "dañada", abre la Terminal y pega:
+  xattr -dr com.apple.quarantine "/Applications/Calculadora+.app"
+
 Requisitos: Apple Silicon (M1/M2/M3/M4) + macOS 14+.
 TXT
 
@@ -82,9 +90,5 @@ echo "==> Comprimiendo a UDZO"
 hdiutil convert "$TMP_DMG" -format UDZO -imagekey zlib-level=9 -o "$OUT"
 rm -f "$TMP_DMG"
 
-echo "==> Generando ZIP"
-rm -f "$ZIP"
-ditto -c -k --sequesterRsrc "$OUT" "$ZIP"
-
 echo "==> Listo:"
-ls -lh "$OUT" "$ZIP"
+ls -lh "$OUT"

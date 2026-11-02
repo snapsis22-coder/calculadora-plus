@@ -781,6 +781,7 @@ struct CalcCommands: Commands {
             Button("Nueva ventana") { WindowOpener.openNew?() }
                 .keyboardShortcut("n")
         }
+        CommandGroup(after: .appInfo) { ComandosDeActualizacion() }
         CommandGroup(after: .windowArrangement) {
             Toggle("Mantener al frente", isOn: $appState.alwaysOnTop)
         }
@@ -794,6 +795,8 @@ struct CalcCommands: Commands {
 @main
 struct CalculadoraApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
+    init() { Actualizaciones.compartido.arrancar() }
 
     var body: some Scene {
         WindowGroup(id: "calc") {

@@ -24,13 +24,16 @@ La primera vez macOS avisará que viene de un desarrollador no identificado: cli
 la app → **Abrir**, o Ajustes del Sistema › Privacidad y Seguridad › *Abrir de todos modos*.
 Es porque está firmada con un certificado propio y no con uno de pago de Apple.
 
+Las versiones siguientes se instalan desde la propia app: al abrir (como mucho una vez al día) o desde el menú **Calculadora+ › Buscar actualizaciones…**, avisa si hay una nueva en Releases y la instala solo si pulsas **Actualizar**. Antes comprueba que el DMG coincida con el hash que publica GitHub y que la app esté firmada con el mismo certificado; la versión vieja va a la Papelera. Como la descarga no pasa por el navegador, macOS no vuelve a pedir *Abrir de todos modos*.
+
 ## Compilar
 
 Requiere macOS 14 o superior y las Command Line Tools de Xcode.
 
 ```
-swift build -c release     compila
+./build_app.sh             compila, firma e instala en /Applications
 ./build_dmg.sh             arma el DMG
+./publicar.sh 1.7.0 "…"    etiqueta y crea la Release con el DMG
 ```
 
 El historial de cambios está en [CHANGELOG.txt](CHANGELOG.txt).

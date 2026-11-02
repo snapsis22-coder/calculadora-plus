@@ -8,7 +8,7 @@ VOL="Calculadora+"
 BG="$(dirname "$0")/dmg_assets/background.png"
 # Versión leída del Info.plist de la app → nombres de archivo versionados
 VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")"
-OUT="$HOME/Desktop/Calculadora+-$VERSION.dmg"
+OUT="${1:-$HOME/Desktop/Calculadora+-$VERSION.dmg}"
 TMP_DMG="/tmp/Calculadora-rw.dmg"
 MNT="/Volumes/$VOL"
 echo "==> Versión: $VERSION"

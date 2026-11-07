@@ -435,7 +435,7 @@ final class WindowSession: ObservableObject {
     let session: UUID
     let isFirst: Bool             // la que se abrió sin otra abierta
     @Published private(set) var showHistory: Bool
-    @Published private(set) var hiddenCount = 0   // «Limpiar»: se ocultan del panel, siguen en el archivo
+    @Published private(set) var hidden: Set<UUID> = []   // «Limpiar»: se ocultan del panel, siguen en el archivo
     weak var window: NSWindow?
     private var closed = false
 
@@ -465,13 +465,13 @@ final class WindowSession: ObservableObject {
 
     /// Lo que se ve en el panel: lo de esta ventana, lo más reciente arriba.
     var visibleOperations: [Operacion] {
-        Array(ArchiveStore.shared.operations(of: session).dropFirst(hiddenCount).reversed())
+        ArchiveStore.shared.operations(of: session).filter { !hidden.contains($0.id) }.reversed()
     }
 
     var lastOperation: Operacion? { visibleOperations.first }
 
     func clearPanel() {
-        hiddenCount = ArchiveStore.shared.operations(of: session).count
+        hidden.formUnion(ArchiveStore.shared.operations(of: session).map(\.id))
     }
 
     func close() {

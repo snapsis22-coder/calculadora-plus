@@ -91,6 +91,21 @@ final class ArchiveStore: ObservableObject {
         return nil
     }
 
+    var isEmpty: Bool { sessions.values.allSatisfy { $0.operations.isEmpty } }
+
+    /// Borra TODO el archivo: los archivos van a la Papelera (se pueden recuperar
+    /// mientras no se vacíe). Las ventanas abiertas siguen funcionando y vuelven a
+    /// crear su archivo con la próxima operación.
+    func deleteAll() {
+        for url in files.values where FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        }
+        files = [:]
+        for sid in sessions.keys { sessions[sid]!.operations = [] }
+        // El «Historial anterior» se movió a la Papelera con los demás; no volver a crearlo
+        UserDefaults.standard.set(true, forKey: "historialPasadoAlArchivo")
+    }
+
     // MARK: búsqueda
 
     struct Grupo: Identifiable {
@@ -251,6 +266,7 @@ struct ArchiveView: View {
     @ObservedObject private var store = ArchiveStore.shared
     @State private var search = ""
     @State private var editing: UUID?
+    @State private var confirmDelete = false
 
     var body: some View {
         let grupos = store.grupos(buscando: search)
@@ -281,6 +297,18 @@ struct ArchiveView: View {
                 Label("Mostrar en el Finder", systemImage: "folder")
             }
             .help("Abrir la carpeta donde se guardan los archivos")
+            Button(role: .destructive) { confirmDelete = true } label: {
+                Label("Borrar archivo", systemImage: "trash")
+            }
+            .help("Borrar todas las operaciones archivadas")
+            .disabled(store.isEmpty)
+        }
+        .confirmationDialog("¿Borrar todas las operaciones archivadas?",
+                            isPresented: $confirmDelete) {
+            Button("Borrar todo", role: .destructive) { store.deleteAll() }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Los archivos van a la Papelera: puedes recuperarlos de ahí mientras no la vacíes.")
         }
         .frame(minWidth: 460, minHeight: 420)
     }

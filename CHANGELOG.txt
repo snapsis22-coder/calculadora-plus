@@ -2,11 +2,12 @@
 Calculadora — Historial de versiones
 =====================================
 
-1.8.1 — 2026-11-07  (build 15)
+1.8.1 — 2026-11-07  (build 17)
 ------------------------------
 - Botón «Borrar archivo» (🗑) en la ventana «Operaciones archivadas»: pide
   confirmación y manda todos los archivos a la Papelera, de donde se pueden
   recuperar mientras no se vacíe.
+- El panel de historial siempre abre cerrado (cada ventana empieza vacía).
 
 1.8.0 — 2026-11-07  (build 13)
 ------------------------------

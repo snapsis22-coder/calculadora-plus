@@ -430,10 +430,7 @@ final class CalculatorModel: ObservableObject {
 /// el panel abierto. Va en un @StateObject porque SwiftUI lo crea una sola vez por
 /// ventana (el init de una View, en cambio, puede correr muchas veces).
 final class WindowSession: ObservableObject {
-    private static var openCount = 0
-
     let session: UUID
-    let isFirst: Bool             // la que se abrió sin otra abierta
     @Published private(set) var showHistory: Bool
     @Published private(set) var hidden: Set<UUID> = []   // «Limpiar»: se ocultan del panel, siguen en el archivo
     weak var window: NSWindow?
@@ -441,18 +438,14 @@ final class WindowSession: ObservableObject {
 
     init() {
         session = ArchiveStore.shared.startSession()
-        isFirst = Self.openCount == 0
-        Self.openCount += 1
-        // Solo la primera ventana recuerda si el panel estaba abierto; las demás
-        // nacen con él cerrado.
-        showHistory = isFirst && UserDefaults.standard.bool(forKey: "mostrarHistorial")
+        // El panel siempre arranca cerrado: cada ventana abre vacía, no hay nada que mostrar
+        showHistory = false
     }
 
     func setShowHistory(_ v: Bool) {
         guard v != showHistory else { return }
         AppState.shared.pinRightEdges()   // ANTES de que SwiftUI cambie el ancho
         showHistory = v
-        if isFirst { UserDefaults.standard.set(v, forKey: "mostrarHistorial") }
     }
 
     func attach(_ w: NSWindow) {
@@ -477,7 +470,6 @@ final class WindowSession: ObservableObject {
     func close() {
         guard !closed else { return }
         closed = true
-        Self.openCount -= 1
         if let window { AppState.shared.unregisterHistoryToggle(for: window) }
     }
 }

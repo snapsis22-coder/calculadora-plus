@@ -2,6 +2,32 @@
 Calculadora — Historial de versiones
 =====================================
 
+1.8.0 — 2026-11-07  (build 13)
+------------------------------
+- Cada ventana abre con el historial vacío y muestra solo lo que se hizo en ella.
+  El panel de historial se abre y se cierra en cada ventana por separado.
+- Archivo de operaciones: cada operación se guarda al instante, con fecha y hora
+  exacta (al segundo), en un archivo por ventana dentro de
+  ~/Library/Application Support/Calculadora+/Archivo/.
+- Ventana «Operaciones archivadas» (icono de la caja, «Archivo» al pie del panel,
+  Cmd+Shift+L o menú del Dock): todo agrupado por día, con buscador por nota,
+  operación o número. Botón «Mostrar en el Finder».
+- Notas: a cada operación se le puede poner una referencia («¿Para qué fue este
+  cálculo?») con la etiqueta junto a la operación, con Cmd+E (Edición › Ponerle
+  nota a la última operación…) o con clic derecho en el historial o en el archivo.
+- «Borrar historial» pasa a llamarse «Limpiar»: vacía el panel, pero las
+  operaciones siguen en el archivo.
+- El historial de las versiones anteriores pasa al archivo como «Historial
+  anterior» (sin hora, porque antes no se guardaba).
+
+1.7.0 — 2026-11-02  (build 11)
+------------------------------
+- Se actualiza sola desde GitHub: busca versiones nuevas al abrir (como mucho una
+  vez al día) o desde Calculadora+ › Buscar actualizaciones…, y solo instala al
+  pulsar «Actualizar». Comprueba el DMG y el certificado.
+- Firmada con certificado propio (antes ad-hoc).
+- Acerca de: «Hecho por Snapsis».
+
 1.6.0 — 2026-10-14  (build 9)
 -----------------------------
 - Historial de operaciones en un panel a la IZQUIERDA. Se abre y se cierra con el
